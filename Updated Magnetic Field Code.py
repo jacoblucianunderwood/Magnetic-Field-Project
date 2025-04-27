@@ -1,6 +1,6 @@
 #Jacob Lucian Underwood
 #Magnetic Field Loop Animation Coding Project
-#Rev: 4/24/2025, Fixing up the code for simplicity.
+#Rev: 12/26/2024
 
 ##Program Purpose:
 #Originally, this program was created as a bonus project for Murray State's PHY 255 course.
@@ -26,9 +26,11 @@
 #animations have been incorportated that should be sufficient.
 
 #Necessary Packages
+import math #Original package. Probably will be removed due to utilizing numpy.
 import numpy as np #A major component in making efficient code. Used for matrices/arrays.
 from numpy.linalg import norm, cross #Needed for calculation.
 import matplotlib.pyplot as plt #A major plotting component. Needed for models.
+from matplotlib.animation import FuncAnimation #Needed for animating the code.
 
 #The layout of the code:
 def main():
@@ -42,66 +44,69 @@ def main():
 
     ##Points for Calculations:
     #Pre-Computing the Mesh:
-    Range = np.linspace(-2*Radius, 2*Radius, 3) #Computing for a cube area, so all 3 lengths are the same
-    Points = ObservationPoints(Range)
-    #Points = np.array([[0.04,0.02,0.01]])
-    #print(len(Points))
+    x_Range = np.linspace(-2*Radius, 2*Radius, 10)
+    y_Range = np.linspace(-2*Radius, 2*Radius, 10)
+    z_Range = np.linspace(-2*Radius, 2*Radius, 10)
+    Points, X, Y, Z = ObservationPoints(x_Range,y_Range,z_Range)
 
     #Pre-allocated Magnetic Field Components
-    B = np.zeros(Points.shape)
+    B = np.zeros((len(Points),3))
 
     #Biot-Savart Constants
     #These are placed here to avoid re-computation with each loop
-    dSComp = -2*np.pi*Radius/Segments     #Constants for dS Calculations
-    mu0 = 4*np.pi*10**(-7)                #Tesla*Meters/Seconds
-    CrossComp = mu0*Current/(4*np.pi)     #dS-rHat Cross Product constants
+    dSComp = -2*math.pi*Radius/Segments     #Constants for dS Calculations
+    mu0 = 4*math.pi*10**(-7)                #Tesla*Meters/Seconds
+    CrossComp = mu0*Current/(4*math.pi)     #dS-rHat Cross Product constants
 
+    #The formatting for this section was partially-suggested by GPT. Originally it had
+    #a different loop that make use of an enumerate command; as a whole I didn't
+    #understand what it had written so I sought to deviate and at least still needed
+    #assistance to make the code usable.
     for i in range(len(Points)):
-        #print(Points[i])
 
         B[i,:] = (MagFieldCalc(Current,Points[i],Radius,Segments,dSComp,mu0,CrossComp))
-        #print(B)
-        #B[0,:]: X values
-        #B[1,:]: Y Values
-        #B[2,:]: Z Values
 
-    MagneticFieldPlot(Radius,Segments,Thickness,B[:,0],B[:,1],B[:,2])
+    B = B.reshape(X.shape + (3,))
+    Bx = B[...,0]
+    By = B[...,1]
+    Bz = B[...,2]
+    MagField = [Bx, By, Bz]
 
+    AnimateMagneticField(Radius,Segments,Thickness,MagField,save_animation=False)
 
-def ObservationPoints(Range):
+def ObservationPoints(x,y,z):
     #Rather than using a singular point and determining the Magnetic Field there, I've
     #chosen to expand to the a set surrounding about the Loop. Hence the number of ranges.
-    X, Y, Z = np.meshgrid(Range,Range,Range)
+
+    
+    X,Y,Z = np.meshgrid(x,y,z)
     
     #Because of how python works, it works out easier to use the flatten command and
     #convert the large meshgrids into a single array.
-    #Had assistance from GPT for this
-    points = np.vstack((X.ravel(),Y.ravel(),Z.ravel())).T
+    points = np.stack((X.flatten(),Y.flatten(),Z.flatten()),axis = -1)
 
-    return points
+    return points, X, Y, Z
 
 def MagFieldCalc(I, Point, Rad,segments,dSComp,mu0,CrossComp):
     
     ###Initializing Various Arrays/Vectors and Constants
     #Angle between horizon and partition location
-    theta = np.linspace(0,2*np.pi,segments,endpoint = False)
+    theta = np.linspace(0,2*math.pi,segments)
 
     #Segments are effectively in 2D
-    radSec = np.column_stack((Rad*np.cos(theta), -Rad*np.sin(theta),np.zeros_like(theta)))
+    radSec =np.column_stack((Rad*np.cos(theta), -Rad*np.sin(theta),np.zeros_like(theta)))
 
     #Line Differentials wrt Segment Locations
-    dS = np.column_stack((-2*Rad*np.pi/segments*np.sin(theta),-2*Rad*np.pi/segments*np.cos(theta),np.zeros_like(theta)))
+    dS = np.column_stack((Rad*np.cos(theta),-Rad*np.sin(theta),np.zeros_like(theta)))
 
     #Distance Vector between Point of Interest and Segment Location
     rVector = Point-radSec
 
     #Magnitude of the Distance Vector
-    rMagnitude = norm(rVector,axis = 1,keepdims=True)
-    #print(rMagnitude[20])
+    rMagnitude = norm(rVector)
 
     #Distance Unit Vector
     rHat = rVector/rMagnitude
-    #print(rHat[20])
 
     #Magnetic Field Differential
     dB = cross(dS,rHat)*CrossComp/rMagnitude**2
@@ -111,7 +116,7 @@ def MagFieldCalc(I, Point, Rad,segments,dSComp,mu0,CrossComp):
 
     return B
 
-def MagneticFieldPlot(Rad,precision,thick,Bx,By,Bz):
+def AnimateMagneticField(Rad,precision,thick,B,save_animation):
 
     ##Step 1: Creating the Shape of the Wire.
 
@@ -122,9 +127,9 @@ def MagneticFieldPlot(Rad,precision,thick,Bx,By,Bz):
     
     #U and V are respective circular angles.
     #U is the anglular position of the Wire's segment.
-    U = np.linspace(0,2*np.pi,precision)
+    U = np.linspace(0,2*math.pi,precision)
     #V is the angle of the segment's circle.
-    V = np.linspace(0,2*np.pi,precision)
+    V = np.linspace(0,2*math.pi,precision)
     U,V = np.meshgrid(U,V)
 
     #Parametric Equations of the Wire
@@ -159,13 +164,31 @@ def MagneticFieldPlot(Rad,precision,thick,Bx,By,Bz):
     #Had assistance from GPT to learn how to make the mesh and the quiver.
 
     #Creating the Magnetic Field Locations
-    Field = np.linspace(-1.5*Rad,1.5*Rad,len(Bx)) #Creating a shape like area
-    FieldX,FieldY,FieldZ = np.meshgrid(Field,Field,Field)
-    print(len(Bx))
+    FieldX, FieldY, FieldZ = np.meshgrid(np.linspace(-1.5*Rad,1.5*Rad,10),
+                                         np.linspace(-1.5*Rad,1.5*Rad,10),
+                                         np.linspace(-1.5*Rad,1.5*Rad,10))
+
+    #Adjusting Vector for easier readability
+    Bx = B[0]
+    By = B[1]
+    Bz = B[2]
 
     #Plotting the Field
     quiver = ax.quiver(FieldX, FieldY, FieldZ, Bx, By, Bz,
                             alpha = .5, length = Rad/5, normalize = True)
+
+    #Step 4: Animative the quiver. Help from GPT.
+    def update(frame):
+        nonlocal quiver
+        quiver.remove()
+        quiver = ax.quiver(FieldX, FieldY, FieldZ, Bx*np.sin(frame),By,Bz,
+                               alpha = 0.5, length = Rad/4)
+        #ax.view_init(elev = 30, azim = frame)
+        return quiver,
+
+    ani = FuncAnimation(fig,update,frames = np.arange(0,360,2), interval = 50)
+    if save_animation:
+        ani.save("magnetic_field.mp4", writer = "ffmpeg")
     
     
     plt.show()
