@@ -44,8 +44,9 @@ def main():
     #Pre-Computing the Mesh:
     Range = np.linspace(-2*Radius, 2*Radius, 4) #Computing for a cube area, so all 3 lengths are the same
     Points = ObservationPoints(Range)
-    #Points = np.array([[0.04,0.02,0.01]])
 
+    #A Test Case: 
+    #Points = np.array([[0.04,0.02,0.01]])
 
     #Pre-allocated Magnetic Field Components
     B = np.zeros(Points.shape)
@@ -56,18 +57,11 @@ def main():
     mu0 = 4*np.pi*10**(-7)                #Tesla*Meters/Seconds
     CrossComp = mu0*Current/(4*np.pi)     #dS-rHat Cross Product constants
 
-    #Attempt to Vectorize Later?
+    
+    #Computing
     B = MagFieldCalc(Current,Points,Radius,Segments,dSComp,mu0,CrossComp)
 
-    #for i in range(len(Points)):
-        #print(Points[i])
-
-     #   B[i,:] = (MagFieldCalc(Current,Points[i],Radius,Segments,dSComp,mu0,CrossComp))
-        #print(B)
-        #B[0,:]: X values
-        #B[1,:]: Y Values
-        #B[2,:]: Z Values
-
+    #Visualizing
     MagneticFieldPlot(Radius,Segments,Thickness,B[:,0],B[:,1],B[:,2])
 
 
